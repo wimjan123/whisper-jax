@@ -13,7 +13,7 @@ jax.config.update("jax_array", True)
 cc.initialize_cache("./jax_cache")
 
 # Don't partition the model for DP
-num_partitions = 1
+num_partitions = 4
 
 # 2D parameter and activation partitioning for DP
 logical_axis_rules_dp = [
