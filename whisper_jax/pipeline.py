@@ -41,7 +41,7 @@ class FlaxWhisperPipline:
         self,
         checkpoint="openai/whisper-large-v2",
         dtype=jnp.bfloat16,
-        num_mp_partitions=1,
+        num_mp_partitions=4,
         logical_axis_rules=logical_axis_rules_dp,
         max_length=None,
     ):

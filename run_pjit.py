@@ -31,7 +31,7 @@ logical_axis_rules_dp = [
 ]
 
 model, params = FlaxWhisperForConditionalGeneration.from_pretrained(
-    "openai/whisper-small.en",
+    "openai/whisper-large-v2",
     _do_init=False,
     dtype=jnp.bfloat16,
 )
