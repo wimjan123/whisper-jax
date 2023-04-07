@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException, Request
 from transformers.models.whisper.tokenization_whisper import TO_LANGUAGE_CODE
 from transformers.pipelines.audio_utils import ffmpeg_read
 
-from whisper-jax import FlaxWhisperPipline
+from whisper_jax import FlaxWhisperPipline
 
 
 checkpoint = "openai/whisper-large-v2"
