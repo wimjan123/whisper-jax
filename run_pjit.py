@@ -31,7 +31,7 @@ logical_axis_rules_dp = [
 ]
 
 model, params = FlaxWhisperForConditionalGeneration.from_pretrained(
-    "openai/whisper-large-v2",
+    "openai/whisper-small.en",
     _do_init=False,
     dtype=jnp.bfloat16,
 )
@@ -74,7 +74,7 @@ state = InferenceState(
 )
 
 partitioner = PjitPartitioner(
-    num_partitions=4,
+    num_partitions=1,
     logical_axis_rules=logical_axis_rules_dp,
 )
 
