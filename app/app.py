@@ -131,7 +131,7 @@ microphone_chunked = gr.Interface(
         article=article,
     )
 
-    audio_chunked = gr.Interface(
+audio_chunked = gr.Interface(
         fn=transcribe_chunked_audio,
         inputs=[
             gr.inputs.Audio(source="upload", optional=True, label="Audio file", type="filepath"),
@@ -149,7 +149,7 @@ microphone_chunked = gr.Interface(
         article=article,
     )
 
-    youtube = gr.Interface(
+youtube = gr.Interface(
         fn=transcribe_youtube,
         inputs=[
             gr.inputs.Textbox(lines=1, placeholder="Paste the URL to a YouTube video here", label="YouTube URL"),
@@ -170,7 +170,7 @@ microphone_chunked = gr.Interface(
         article=article,
     )
 
-    demo = gr.Blocks()
+demo = gr.Blocks()
 
     with demo:
         gr.TabbedInterface([microphone_chunked, audio_chunked, youtube], ["Microphone", "Audio File", "YouTube"])
