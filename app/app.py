@@ -29,6 +29,7 @@ BATCH_SIZE = 16
 NUM_PROC = 16
 FILE_LIMIT_MB = 2500
 
+output_download = gr.outputs.Download(label="Download as TXT", filename="output.txt", filecontent="")
 
 def query(payload):
     response = requests.post(API_URL, json=payload)
