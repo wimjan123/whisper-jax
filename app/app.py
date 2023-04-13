@@ -172,8 +172,8 @@ youtube = gr.Interface(
 
 demo = gr.Blocks()
 
-    with demo:
-        gr.TabbedInterface([microphone_chunked, audio_chunked, youtube], ["Microphone", "Audio File", "YouTube"])
+with demo:
+    gr.TabbedInterface([microphone_chunked, audio_chunked, youtube], ["Microphone", "Audio File", "YouTube"])
 
-    demo.queue(max_size=3)
-    demo.launch(show_api=False)
+demo.queue(max_size=3)
+demo.launch(show_api=False)
