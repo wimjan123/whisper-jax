@@ -1,22 +1,23 @@
-import time
+import base64
 
 import jax.numpy as jnp
 import numpy as np
 import pytube
 import requests
 from fastapi import FastAPI, HTTPException, Request
+from jax.experimental.compilation_cache import compilation_cache as cc
 from transformers.models.whisper.tokenization_whisper import TO_LANGUAGE_CODE
 from transformers.pipelines.audio_utils import ffmpeg_read
 
 from whisper_jax import FlaxWhisperPipline
 
 
+cc.initialize_cache("./jax_cache")
 checkpoint = "openai/whisper-large-v2"
+batch_size = 16
+chunk_length_s = 30
 
 pipeline = FlaxWhisperPipline(checkpoint, dtype=jnp.bfloat16)
-pipeline.shard_params()
-
-# TODO(SG): compile the model beforehand (with and without timestamps)
 
 language_codes = {lang: f"<|{TO_LANGUAGE_CODE[lang]}|>" for lang in TO_LANGUAGE_CODE}
 generation_config = pipeline.model.generation_config
@@ -29,14 +30,14 @@ def read_root():
     return {"Hello": "World"}
 
 
-def download_youtube(yt_url, max_filesize=1):
+def download_youtube(yt_url, max_filesize=50.0):
     yt = pytube.YouTube(yt_url)
     stream = yt.streams.filter(only_audio=True)[0]
 
-    if stream.filesize_gb > max_filesize:
+    if stream.filesize_mb > max_filesize:
         raise HTTPException(
             status_code=418,
-            detail=f"Maximum YouTube file size is {str(max_filesize)}GB, got {str(stream.filesize_gb)}GB.",
+            detail=f"Maximum YouTube file size is {max_filesize}MB, got {stream.filesize_mb:.2f}MB.",
         )
 
     stream.download(filename="audio.mp3")
@@ -81,20 +82,23 @@ def check_inputs(inputs, language, task, return_timestamps):
             audio = np.array(inputs["array"])
             inputs["array"] = (audio - np.mean(audio)) / np.std(audio)
 
+        if isinstance(inputs["array"], str):
+            inputs["array"] = np.frombuffer(base64.b64decode(inputs["array"]), dtype=np.float32)
+
         if not isinstance(inputs["array"], np.ndarray):
             raise HTTPException(
-                status_code=418, detail=f"We expect a numpy ndarray as input, got {str(type(inputs['array']))}"
+                status_code=418, detail=f"We expect a numpy ndarray as input, got {type(inputs['array'])}"
             )
 
         if len(inputs["array"].shape) != 1:
             raise HTTPException(
                 status_code=418,
-                detail=f"We expect a single channel audio input for the Flax Whisper API, got {str(len(inputs['array'].shape))} channels.",
+                detail=f"We expect a single channel audio input for the Flax Whisper API, got {len(inputs['array'].shape)} channels.",
             )
     else:
         raise HTTPException(
             status_code=418,
-            detail=f"We expect an audio input in the form of bytes or dictionary, but got {str(type(inputs))}.",
+            detail=f"We expect an audio input in the form of bytes or dictionary, but got {type(inputs)}.",
         )
 
     language_token = None
@@ -147,7 +151,6 @@ def check_inputs(inputs, language, task, return_timestamps):
 @app.post("/generate/")
 async def generate(request: Request):
     content = await request.json()
-    start = time.time()
     inputs = content.get("inputs", None)
     language = content.get("language", None)
     task = content.get("task", "transcribe")
@@ -155,7 +158,33 @@ async def generate(request: Request):
 
     inputs, language_token, task, return_timestamps = check_inputs(inputs, language, task, return_timestamps)
 
-    print("Loading: ", time.time() - start)
+    generation = pipeline(
+        inputs,
+        language=language,
+        task=task,
+        return_timestamps=return_timestamps,
+        batch_size=batch_size,
+        chunk_length_s=chunk_length_s,
+    )
+    return generation
 
-    generation = pipeline(inputs, language="english", task=task, return_timestamps=return_timestamps)
+
+@app.post("/generate_from_features/")
+async def generate_from_features(request: Request):
+    content = await request.json()
+    batch = content.get("batch", None)
+    feature_shape = content.get("feature_shape", None)
+    language = content.get("language", None)
+    task = content.get("task", "transcribe")
+    return_timestamps = content.get("return_timestamps", False)
+
+    batch["input_features"] = np.frombuffer(base64.b64decode(batch["input_features"]), dtype=np.float32).reshape(
+        feature_shape
+    )
+
+    generation = pipeline.forward(
+        batch, batch_size=batch_size, language=language, task=task, return_timestamps=return_timestamps
+    )
+    generation["tokens"] = generation["tokens"].tolist()
+
     return generation
