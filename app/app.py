@@ -69,10 +69,10 @@ if __name__ == "__main__":
     processor = WhisperPrePostProcessor.from_pretrained("openai/whisper-large-v2")
     pool = Pool(NUM_PROC)
 
-    def transcribe_chunked_audio(inputs, task=None, return_timestamps=False):
-        file_size_mb = os.stat(inputs).st_size / (1024 * 1024)
-        if file_size_mb > FILE_LIMIT_MB:
-            return f"ERROR: File size exceeds file size limit. Got file of size {file_size_mb:.2f}MB for a limit of {FILE_LIMIT_MB}MB.", None
+def transcribe_chunked_audio(inputs, task=None, return_timestamps=False):
+    file_size_mb = os.stat(inputs).st_size / (1024 * 1024)
+    if file_size_mb > FILE_LIMIT_MB:
+        return f"ERROR: File size exceeds file size limit. Got file of size {file_size_mb:.2f}MB for a limit of {FILE_LIMIT_MB}MB.", None
 
     with open(inputs, "rb") as f:
         inputs = f.read()
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     post_processed = processor.postprocess(model_outputs, return_timestamps=return_timestamps)
     timestamps = post_processed.get("chunks")
     output_text = post_processed["text"]
-    
+
     # Add the Download component to the outputs
     output_download = gr.outputs.Download(label="Download as TXT", filename="output.txt", filecontent=output_text)
 
@@ -114,70 +114,66 @@ def transcribe_youtube(yt_url, task=None, return_timestamps=False):
     return html_embed_str, text, timestamps, output_download
 
 microphone_chunked = gr.Interface(
-    fn=transcribe_chunked_audio,
-    inputs=[
-        gr.inputs.Audio(source="microphone", optional=True, type="filepath"),
-        gr.inputs.Radio(["transcribe", "translate"], label="Task", default="transcribe"),
-        gr.inputs.Checkbox(default=False, label="Return timestamps"),
-    ],
-    outputs=[
-        gr.outputs.Textbox(label="Transcription"),
-        gr.outputs.Textbox(label="Timestamps"),
-        output_download
-    ],
-    allow_flagging="never",
-    title=title,
-    description=description,
-    article=article,
-)
+        fn=transcribe_chunked_audio,
+        inputs=[
+            gr.inputs.Audio(source="microphone", optional=True, type="filepath"),
+            gr.inputs.Radio(["transcribe", "translate"], label="Task", default="transcribe"),
+            gr.inputs.Checkbox(default=False, label="Return timestamps"),
+        ],
+        outputs=[
+            gr.outputs.Textbox(label="Transcription"),
+            gr.outputs.Textbox(label="Timestamps"),
+            output_download
+        ],
+        allow_flagging="never",
+        title=title,
+        description=description,
+        article=article,
+    )
 
-audio_chunked = gr.Interface(
-    fn=transcribe_chunked_audio,
-    inputs=[
-        gr.inputs.Audio(source="upload", optional=True, label="Audio file", type="filepath"),
-        gr.inputs.Radio(["transcribe", "translate"], label="Task", default="transcribe"),
-        gr.inputs.Checkbox(default=False, label="Return timestamps"),
-    ],
-    outputs=[
-        gr.outputs.Textbox(label="Transcription"),
-        gr.outputs.Textbox(label="Timestamps"),
-        output_download
-    ],
-    allow_flagging="never",
-    title=title,
-    description=description,
-    article=article,
-)
+    audio_chunked = gr.Interface(
+        fn=transcribe_chunked_audio,
+        inputs=[
+            gr.inputs.Audio(source="upload", optional=True, label="Audio file", type="filepath"),
+            gr.inputs.Radio(["transcribe", "translate"], label="Task", default="transcribe"),
+            gr.inputs.Checkbox(default=False, label="Return timestamps"),
+        ],
+        outputs=[
+            gr.outputs.Textbox(label="Transcription"),
+            gr.outputs.Textbox(label="Timestamps"),
+            output_download
+        ],
+        allow_flagging="never",
+        title=title,
+        description=description,
+        article=article,
+    )
 
-youtube = gr.Interface(
-    fn=transcribe_youtube,
-    inputs=[
-        gr.inputs.Textbox(lines=1, placeholder="Paste the URL to a YouTube video here", label="YouTube URL"),
-        gr.inputs.Radio(["transcribe", "translate"], label="Task", default="transcribe"),
-        gr.inputs.Checkbox(default=False, label="Return timestamps"),
-    ],
-    outputs=[
-        gr.outputs.HTML(label="Video"),
-        gr.outputs.Textbox(label="Transcription"),
-        gr.outputs.Textbox(label="Timestamps"),
-        output_download
-    ],
-    allow_flagging="never",
-    title=title,
-    examples=[["https://www.youtube.com/watch?v=m8u-18Q0s7I", "transcribe", False]],
-    cache_examples=False,
-    description=description,
-    article=article,
-)
+    youtube = gr.Interface(
+        fn=transcribe_youtube,
+        inputs=[
+            gr.inputs.Textbox(lines=1, placeholder="Paste the URL to a YouTube video here", label="YouTube URL"),
+            gr.inputs.Radio(["transcribe", "translate"], label="Task", default="transcribe"),
+            gr.inputs.Checkbox(default=False, label="Return timestamps"),
+        ],
+        outputs=[
+            gr.outputs.HTML(label="Video"),
+            gr.outputs.Textbox(label="Transcription"),
+            gr.outputs.Textbox(label="Timestamps"),
+            output_download
+        ],
+        allow_flagging="never",
+        title=title,
+        examples=[["https://www.youtube.com/watch?v=m8u-18Q0s7I", "transcribe", False]],
+        cache_examples=False,
+        description=description,
+        article=article,
+    )
 
-demo = gr.Blocks()
+    demo = gr.Blocks()
 
-with demo:
-    gr.TabbedInterface([microphone_chunked, audio_chunked, youtube], ["Microphone", "Audio File", "YouTube"])
+    with demo:
+        gr.TabbedInterface([microphone_chunked, audio_chunked, youtube], ["Microphone", "Audio File", "YouTube"])
 
-demo.queue(max_size=3)
-demo.launch(show_api=False)
-
-
-
-
+    demo.queue(max_size=3)
+    demo.launch(show_api=False)
