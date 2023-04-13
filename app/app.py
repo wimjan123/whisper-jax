@@ -29,8 +29,6 @@ BATCH_SIZE = 16
 NUM_PROC = 16
 FILE_LIMIT_MB = 2500
 
-output_download = gr.outputs.Download(label="Download as TXT", filename="output.txt", filecontent="")
-
 def query(payload):
     response = requests.post(API_URL, json=payload)
     return response.json(), response.status_code
@@ -70,7 +68,7 @@ if __name__ == "__main__":
     processor = WhisperPrePostProcessor.from_pretrained("openai/whisper-large-v2")
     pool = Pool(NUM_PROC)
 
-def transcribe_chunked_audio(inputs, task=None, return_timestamps=False):
+def transcribe_chunked_audio(inputs, task=None, return_timestamps=False, download_output=False):
     file_size_mb = os.stat(inputs).st_size / (1024 * 1024)
     if file_size_mb > FILE_LIMIT_MB:
         return f"ERROR: File size exceeds file size limit. Got file of size {file_size_mb:.2f}MB for a limit of {FILE_LIMIT_MB}MB.", None
@@ -90,13 +88,15 @@ def transcribe_chunked_audio(inputs, task=None, return_timestamps=False):
         return err, None
 
     post_processed = processor.postprocess(model_outputs, return_timestamps=return_timestamps)
+    text = post_processed["text"]
     timestamps = post_processed.get("chunks")
-    output_text = post_processed["text"]
 
-    # Add the Download component to the outputs
-    output_download = gr.outputs.Download(label="Download as TXT", filename="output.txt", filecontent=output_text)
-
-    return output_text, timestamps, output_download
+    if download_output:
+        with open("output.txt", "w") as f:
+            f.write(text)
+        return text, timestamps, gr.outputs.File("output.txt", label="Download Output")
+    else:
+        return text, timestamps
 
 def _return_yt_html_embed(yt_url):
     video_id = yt_url.split("?v=")[-1]
@@ -133,23 +133,21 @@ microphone_chunked = gr.Interface(
     )
 
 audio_chunked = gr.Interface(
-        fn=transcribe_chunked_audio,
-        inputs=[
-            gr.inputs.Audio(source="upload", optional=True, label="Audio file", type="filepath"),
-            gr.inputs.Radio(["transcribe", "translate"], label="Task", default="transcribe"),
-            gr.inputs.Checkbox(default=False, label="Return timestamps"),
-        ],
-        outputs=[
-            gr.outputs.Textbox(label="Transcription"),
-            gr.outputs.Textbox(label="Timestamps"),
-            output_download
-        ],
-        allow_flagging="never",
-        title=title,
-        description=description,
-        article=article,
-    )
-
+    fn=partial(transcribe_chunked_audio, download_output=True),
+    inputs=[
+        gr.inputs.Audio(source="upload", optional=True, label="Audio file", type="filepath"),
+        gr.inputs.Radio(["transcribe", "translate"], label="Task", default="transcribe"),
+        gr.inputs.Checkbox(default=False, label="Return timestamps"),
+    ],
+    outputs=[
+        gr.outputs.Textbox(label="Transcription"),
+        gr.outputs.Textbox(label="Timestamps"),
+    ],
+    allow_flagging="never",
+    title=title,
+    description=description,
+    article=article,
+)
 youtube = gr.Interface(
         fn=transcribe_youtube,
         inputs=[
